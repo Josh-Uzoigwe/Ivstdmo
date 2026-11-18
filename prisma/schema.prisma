@@ -1,0 +1,272 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  name            String
+  role            String   @default("USER") // USER | ADMIN
+  baseCurrency    String   @default("USD") // USD | EUR | GBP
+  totpSecret      String?
+  totpEnabled     Boolean  @default(false)
+  referralCode    String   @unique
+  referredById    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sessions              Session[]
+  kycProfile            KycProfile?
+  cashBalances          CashBalance[]
+  orders                Order[]
+  positions             Position[]
+  transactions          Transaction[]
+  watchlists            Watchlist[]
+  priceAlerts           PriceAlert[]
+  notifications         Notification[]
+  recurringInvestments  RecurringInvestment[]
+  managedSubscriptions  ManagedPlanSubscription[]
+  referralsSent         Referral[] @relation("Referrer")
+  referralReceived      Referral?  @relation("Referred")
+}
+
+model Session {
+  id                String   @id @default(cuid())
+  userId            String
+  token             String   @unique
+  twoFactorVerified Boolean  @default(false)
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model KycProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  status             String   @default("NOT_STARTED") // NOT_STARTED | PENDING | APPROVED | REJECTED
+  fullName           String?
+  dateOfBirth        String?
+  nationality        String?
+  addressLine1       String?
+  city               String?
+  postalCode         String?
+  country            String?
+  idType             String?  // PASSPORT | DRIVERS_LICENSE | NATIONAL_ID
+  idNumberLast4      String?
+  idDocumentName     String?
+  riskScore          Int?
+  riskTolerance      String?  // CONSERVATIVE | MODERATE | GROWTH | AGGRESSIVE
+  investmentGoal     String?
+  annualIncomeBand   String?
+  agreementsAccepted Boolean  @default(false)
+  reviewNote         String?
+  submittedAt        DateTime?
+  reviewedAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CashBalance {
+  id          String   @id @default(cuid())
+  userId      String
+  currency    String   // USD | EUR | GBP
+  amountCents Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, currency])
+}
+
+model Asset {
+  id             String  @id @default(cuid())
+  ticker         String  @unique
+  name           String
+  assetClass     String  // STOCK | ETF | CRYPTO
+  exchange       String  // NASDAQ | NYSE | XETRA | EURONEXT | LSE | CRYPTO
+  currency       String  // USD | EUR | GBP
+  sector         String
+  description    String
+  marketCapCents Float   @default(0)
+  peRatio        Float?
+  dividendYield  Float?
+  high52wCents   Int     @default(0)
+  low52wCents    Int     @default(0)
+  basePriceCents Int
+  volatility     Float   @default(0.02) // daily volatility factor
+  isActive       Boolean @default(true)
+
+  orders               Order[]
+  positions            Position[]
+  watchlistItems       WatchlistItem[]
+  priceAlerts          PriceAlert[]
+  recurringInvestments RecurringInvestment[]
+}
+
+model Order {
+  id                    String    @id @default(cuid())
+  userId                String
+  assetId               String
+  side                  String    // BUY | SELL
+  orderType             String    // MARKET | LIMIT | STOP
+  status                String    @default("PENDING") // PENDING | FILLED | CANCELLED | REJECTED
+  quantityDecimal       Float?    // requested shares (if share-based)
+  notionalCents         Int?      // requested cash amount in asset currency (if dollar-based)
+  limitPriceCents       Int?
+  stopPriceCents        Int?
+  filledPriceCents      Int?
+  filledQuantityDecimal Float?
+  settlementCurrency    String    @default("USD")
+  fxRateApplied         Float     @default(1)
+  fxFeeCents            Int       @default(0)
+  createdAt             DateTime  @default(now())
+  filledAt              DateTime?
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model Position {
+  id              String   @id @default(cuid())
+  userId          String
+  assetId         String
+  quantityDecimal Float    @default(0)
+  avgCostCents    Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, assetId])
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // DEPOSIT | WITHDRAWAL | FX_CONVERT | BUY | SELL | DIVIDEND | REFERRAL_BONUS | AUTO_INVEST
+  currency    String
+  amountCents Int      // signed: positive = inflow, negative = outflow
+  description String
+  referenceId String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Watchlist {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items WatchlistItem[]
+}
+
+model WatchlistItem {
+  id          String   @id @default(cuid())
+  watchlistId String
+  assetId     String
+  createdAt   DateTime @default(now())
+
+  watchlist Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  asset     Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, assetId])
+}
+
+model PriceAlert {
+  id               String    @id @default(cuid())
+  userId           String
+  assetId          String
+  direction        String    // ABOVE | BELOW
+  targetPriceCents Int
+  isActive         Boolean   @default(true)
+  triggeredAt      DateTime?
+  createdAt        DateTime  @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   // ORDER | ALERT | WALLET | KYC | SYSTEM
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RecurringInvestment {
+  id          String    @id @default(cuid())
+  userId      String
+  assetId     String
+  amountCents Int
+  currency    String
+  frequency   String    // DAILY | WEEKLY | MONTHLY
+  nextRunAt   DateTime
+  lastRunAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model ManagedPlanSubscription {
+  id             String   @id @default(cuid())
+  userId         String
+  planId         String
+  allocatedCents Int
+  currency       String   @default("USD")
+  status         String   @default("ACTIVE") // ACTIVE | PAUSED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Referral {
+  id             String   @id @default(cuid())
+  referrerId     String
+  referredUserId String   @unique
+  status         String   @default("QUALIFIED") // PENDING | QUALIFIED
+  rewardCents    Int      @default(2500)
+  createdAt      DateTime @default(now())
+
+  referrer     User @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredUser User @relation("Referred", fields: [referredUserId], references: [id], onDelete: Cascade)
+}
+
+model MarketSimState {
+  id                   String   @id @default("singleton")
+  isPaused             Boolean  @default(false)
+  volatilityMultiplier Float    @default(1.0)
+  activeEventName      String?
+  tickSeedOffset       Int      @default(0)
+  updatedAt            DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+}
