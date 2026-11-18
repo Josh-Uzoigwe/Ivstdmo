@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BRAND } from "@/config/brand";
-import { Logo } from "./Logo";
+import { BrandMark } from "./Logo";
 
 export function Footer() {
   return (
@@ -8,23 +8,11 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-slate-800">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 17l6-6 4 4 8-8" />
-                  <path d="M17 7h4v4" />
-                </svg>
-              </div>
-              <span className="text-lg font-semibold text-white">{BRAND.name}</span>
+            <div className="inline-flex items-center gap-2">
+              <BrandMark className="w-6 h-6 text-white" />
+              <span className="text-[19px] font-semibold tracking-[-0.03em] text-white">
+                {BRAND.name}
+              </span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
               {BRAND.tagline} Multi-currency brokerage featuring equities, ETFs, digital assets, and transparent managed portfolios.
